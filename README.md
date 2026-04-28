@@ -2,8 +2,6 @@
 
 *A clean, aesthetic LaTeX style for preprints such as arXiv and bioRxiv.*
 
-Available languages: [English](readme.md) | [中文说明](docs/readme_zh.md)
-
 ## Description
 
 The project features an aesthetically pleasing and straightforward LaTeX style, ideal for “preprint” submissions on platforms like **arXiv**, **bioRxiv**, and similar repositories.
