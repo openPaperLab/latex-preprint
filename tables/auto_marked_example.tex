@@ -1,0 +1,16 @@
+\begin{table}[t]
+  \caption{Example table with automatic best/second-best marks.}
+  \label{tab:auto-marked-example}
+  \centering
+  \tmsetup{style=both}
+  \begin{tabular}{lccc}
+    \toprule
+    Method & PSNR$\uparrow$ & MS-SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+    \midrule
+    D-NeRF & \tmcell{example-psnr}{38.18} & \tmcell{example-ssim}{0.9910} & \tmlowcell{example-lpips}{0.0120} \\
+    TiNeuVox-B & \tmcell{example-psnr}{40.62} & \tmcell{example-ssim}{0.9968} & \tmlowcell{example-lpips}{0.0083} \\
+    SC-GS & \tmcell{example-psnr}{44.91} & \tmcell{example-ssim}{0.9980} & \tmlowcell{example-lpips}{0.0166} \\
+    Ours & \tmcell{example-psnr}{41.72} & \tmcell{example-ssim}{0.9970} & \tmlowcell{example-lpips}{0.0097} \\
+    \bottomrule
+  \end{tabular}
+\end{table}

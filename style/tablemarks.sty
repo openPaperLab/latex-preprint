@@ -1,0 +1,703 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesExplPackage{style/tablemarks}{2026/04/28}{0.1.0}
+  {Automatic best and second-best table cell marking}
+
+\RequirePackage{xparse}
+\RequirePackage{xcolor}
+\RequirePackage{colortbl}
+\RequirePackage{pdfrender}
+
+\definecolor{TableMarkBest}{HTML}{F4A6A6}
+\definecolor{TableMarkSecond}{HTML}{FFF59D}
+\definecolor{TableMarkHeat}{HTML}{6BAED6}
+
+\ExplSyntaxOn
+
+\prop_new:N \g__tablemarks_best_prop
+\prop_new:N \g__tablemarks_second_prop
+\prop_new:N \g__tablemarks_direction_prop
+\prop_new:N \g__tablemarks_heat_min_prop
+\prop_new:N \g__tablemarks_heat_max_prop
+\tl_new:N \g__tablemarks_style_tl
+\tl_new:N \g__tablemarks_best_style_tl
+\tl_new:N \g__tablemarks_second_style_tl
+\tl_new:N \g__tablemarks_best_color_tl
+\tl_new:N \g__tablemarks_second_color_tl
+\tl_new:N \g__tablemarks_heat_color_tl
+\tl_new:N \g__tablemarks_bold_line_width_tl
+\fp_new:N \g__tablemarks_tolerance_fp
+\fp_new:N \g__tablemarks_heat_min_intensity_fp
+\fp_new:N \g__tablemarks_heat_max_intensity_fp
+
+\tl_gset:Nn \g__tablemarks_style_tl { both }
+\tl_gset:Nn \g__tablemarks_best_style_tl { both }
+\tl_gset:Nn \g__tablemarks_second_style_tl { both }
+\tl_gset:Nn \g__tablemarks_best_color_tl { TableMarkBest }
+\tl_gset:Nn \g__tablemarks_second_color_tl { TableMarkSecond }
+\tl_gset:Nn \g__tablemarks_heat_color_tl { TableMarkHeat }
+\tl_gset:Nn \g__tablemarks_bold_line_width_tl { 0.30pt }
+\fp_gset:Nn \g__tablemarks_tolerance_fp { 0.0000001 }
+\fp_gset:Nn \g__tablemarks_heat_min_intensity_fp { 8 }
+\fp_gset:Nn \g__tablemarks_heat_max_intensity_fp { 55 }
+
+\tl_new:N \l__tablemarks_direction_tl
+\tl_new:N \l__tablemarks_value_tl
+\tl_new:N \l__tablemarks_auto_value_tl
+\tl_new:N \l__tablemarks_best_tl
+\tl_new:N \l__tablemarks_second_tl
+\tl_new:N \l__tablemarks_heat_min_tl
+\tl_new:N \l__tablemarks_heat_max_tl
+\tl_new:N \l__tablemarks_heat_percent_tl
+\tl_new:N \l__tablemarks_heat_color_spec_tl
+\fp_new:N \l__tablemarks_value_fp
+\fp_new:N \l__tablemarks_best_fp
+\fp_new:N \l__tablemarks_second_fp
+\fp_new:N \l__tablemarks_heat_min_fp
+\fp_new:N \l__tablemarks_heat_max_fp
+\fp_new:N \l__tablemarks_heat_percent_fp
+\box_new:N \l__tablemarks_measure_box
+\bool_new:N \l__tablemarks_have_best_bool
+\bool_new:N \l__tablemarks_have_second_bool
+\bool_new:N \l__tablemarks_extract_active_bool
+\bool_new:N \l__tablemarks_extract_done_bool
+\bool_new:N \l__tablemarks_extract_dot_bool
+\bool_new:N \l__tablemarks_extract_digit_bool
+
+\keys_define:nn { tablemarks }
+  {
+    style .choice:,
+    style / text .code:n =
+      {
+        \tl_gset:Nn \g__tablemarks_style_tl { text }
+        \tl_gset:Nn \g__tablemarks_best_style_tl { text }
+        \tl_gset:Nn \g__tablemarks_second_style_tl { text }
+      },
+    style / background .code:n =
+      {
+        \tl_gset:Nn \g__tablemarks_style_tl { background }
+        \tl_gset:Nn \g__tablemarks_best_style_tl { background }
+        \tl_gset:Nn \g__tablemarks_second_style_tl { background }
+      },
+    style / color .code:n =
+      {
+        \tl_gset:Nn \g__tablemarks_style_tl { background }
+        \tl_gset:Nn \g__tablemarks_best_style_tl { background }
+        \tl_gset:Nn \g__tablemarks_second_style_tl { background }
+      },
+    style / both .code:n =
+      {
+        \tl_gset:Nn \g__tablemarks_style_tl { both }
+        \tl_gset:Nn \g__tablemarks_best_style_tl { both }
+        \tl_gset:Nn \g__tablemarks_second_style_tl { both }
+      },
+    style .initial:n = both,
+    best-style .choice:,
+    best-style / text .code:n =
+      { \tl_gset:Nn \g__tablemarks_best_style_tl { text } },
+    best-style / background .code:n =
+      { \tl_gset:Nn \g__tablemarks_best_style_tl { background } },
+    best-style / color .code:n =
+      { \tl_gset:Nn \g__tablemarks_best_style_tl { background } },
+    best-style / both .code:n =
+      { \tl_gset:Nn \g__tablemarks_best_style_tl { both } },
+    second-style .choice:,
+    second-style / text .code:n =
+      { \tl_gset:Nn \g__tablemarks_second_style_tl { text } },
+    second-style / background .code:n =
+      { \tl_gset:Nn \g__tablemarks_second_style_tl { background } },
+    second-style / color .code:n =
+      { \tl_gset:Nn \g__tablemarks_second_style_tl { background } },
+    second-style / both .code:n =
+      { \tl_gset:Nn \g__tablemarks_second_style_tl { both } },
+    best-color .tl_gset:N = \g__tablemarks_best_color_tl,
+    second-color .tl_gset:N = \g__tablemarks_second_color_tl,
+    heat-color .tl_gset:N = \g__tablemarks_heat_color_tl,
+    heat-min-intensity .code:n =
+      { \fp_gset:Nn \g__tablemarks_heat_min_intensity_fp { #1 } },
+    heat-max-intensity .code:n =
+      { \fp_gset:Nn \g__tablemarks_heat_max_intensity_fp { #1 } },
+    bold-line-width .tl_gset:N = \g__tablemarks_bold_line_width_tl,
+    tolerance .code:n =
+      { \fp_gset:Nn \g__tablemarks_tolerance_fp { #1 } },
+  }
+
+\cs_new_protected:Npn \__tablemarks_set_direction:n #1
+  {
+    \tl_set:Nn \l__tablemarks_direction_tl { higher }
+    \str_case:nn { #1 }
+      {
+        { high }    { \tl_set:Nn \l__tablemarks_direction_tl { higher } }
+        { higher }  { \tl_set:Nn \l__tablemarks_direction_tl { higher } }
+        { max }     { \tl_set:Nn \l__tablemarks_direction_tl { higher } }
+        { larger }  { \tl_set:Nn \l__tablemarks_direction_tl { higher } }
+        { low }     { \tl_set:Nn \l__tablemarks_direction_tl { lower } }
+        { lower }   { \tl_set:Nn \l__tablemarks_direction_tl { lower } }
+        { min }     { \tl_set:Nn \l__tablemarks_direction_tl { lower } }
+        { smaller } { \tl_set:Nn \l__tablemarks_direction_tl { lower } }
+      }
+  }
+
+\prg_new_conditional:Npnn \__tablemarks_equal:NN #1 #2 { T, F, TF }
+  {
+    \fp_compare:nTF
+      { abs( #1 - #2 ) <= \g__tablemarks_tolerance_fp }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+
+\prg_new_conditional:Npnn \__tablemarks_better:NNN #1 #2 #3 { T, F, TF }
+  {
+    \tl_if_eq:NnTF #1 { lower }
+      {
+        \fp_compare:nTF
+          { #2 < #3 - \g__tablemarks_tolerance_fp }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      {
+        \fp_compare:nTF
+          { #2 > #3 + \g__tablemarks_tolerance_fp }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_extract_number:nN #1 #2
+  {
+    \tl_clear:N #2
+    \tl_set:Nx \l__tablemarks_value_tl { \tl_to_str:n { #1 } }
+    \bool_set_false:N \l__tablemarks_extract_active_bool
+    \bool_set_false:N \l__tablemarks_extract_done_bool
+    \bool_set_false:N \l__tablemarks_extract_dot_bool
+    \bool_set_false:N \l__tablemarks_extract_digit_bool
+    \tl_map_inline:Nn \l__tablemarks_value_tl
+      {
+        \bool_if:NF \l__tablemarks_extract_done_bool
+          {
+            \tl_if_in:nnTF { 0123456789 } { ##1 }
+              {
+                \bool_set_true:N \l__tablemarks_extract_active_bool
+                \bool_set_true:N \l__tablemarks_extract_digit_bool
+                \tl_put_right:Nn #2 { ##1 }
+              }
+              {
+                \str_if_eq:nnTF { ##1 } { . }
+                  {
+                    \bool_if:NTF \l__tablemarks_extract_active_bool
+                      {
+                        \bool_if:NTF \l__tablemarks_extract_dot_bool
+                          { \bool_set_true:N \l__tablemarks_extract_done_bool }
+                          {
+                            \bool_set_true:N \l__tablemarks_extract_dot_bool
+                            \tl_put_right:Nn #2 { . }
+                          }
+                      }
+                      {
+                        \bool_set_true:N \l__tablemarks_extract_active_bool
+                        \bool_set_true:N \l__tablemarks_extract_dot_bool
+                        \tl_put_right:Nn #2 { 0. }
+                      }
+                  }
+                  {
+                    \bool_if:NT \l__tablemarks_extract_active_bool
+                      {
+                        \bool_if:NTF \l__tablemarks_extract_digit_bool
+                          { \bool_set_true:N \l__tablemarks_extract_done_bool }
+                          {
+                            \tl_clear:N #2
+                            \bool_set_false:N
+                              \l__tablemarks_extract_active_bool
+                            \bool_set_false:N \l__tablemarks_extract_dot_bool
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    \bool_if:NF \l__tablemarks_extract_digit_bool { \tl_clear:N #2 }
+  }
+
+\cs_new_protected:Npn \__tablemarks_consider_value:
+  {
+    \bool_if:NTF \l__tablemarks_have_best_bool
+      {
+        \__tablemarks_better:NNNTF
+          \l__tablemarks_direction_tl
+          \l__tablemarks_value_fp
+          \l__tablemarks_best_fp
+          {
+            \fp_set_eq:NN \l__tablemarks_second_fp \l__tablemarks_best_fp
+            \bool_set_true:N \l__tablemarks_have_second_bool
+            \fp_set_eq:NN \l__tablemarks_best_fp \l__tablemarks_value_fp
+          }
+          {
+            \__tablemarks_equal:NNTF
+              \l__tablemarks_value_fp
+              \l__tablemarks_best_fp
+              { }
+              {
+                \bool_if:NTF \l__tablemarks_have_second_bool
+                  {
+                    \__tablemarks_better:NNNT
+                      \l__tablemarks_direction_tl
+                      \l__tablemarks_value_fp
+                      \l__tablemarks_second_fp
+                      {
+                        \fp_set_eq:NN
+                          \l__tablemarks_second_fp
+                          \l__tablemarks_value_fp
+                      }
+                  }
+                  {
+                    \fp_set_eq:NN
+                      \l__tablemarks_second_fp
+                      \l__tablemarks_value_fp
+                    \bool_set_true:N \l__tablemarks_have_second_bool
+                  }
+              }
+          }
+      }
+      {
+        \fp_set_eq:NN \l__tablemarks_best_fp \l__tablemarks_value_fp
+        \bool_set_true:N \l__tablemarks_have_best_bool
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_record:nnn #1 #2 #3
+  {
+    \group_begin:
+      \__tablemarks_set_direction:n { #1 }
+      \prop_get:NnNTF \g__tablemarks_direction_prop { #2 } \l_tmpa_tl
+        {
+          \tl_if_eq:NNF \l_tmpa_tl \l__tablemarks_direction_tl
+            {
+              \PackageWarning{tablemarks}
+                {Metric group '#2' was used with mixed directions}
+              \tl_set_eq:NN \l__tablemarks_direction_tl \l_tmpa_tl
+            }
+        }
+        {
+          \prop_gput:Nnx \g__tablemarks_direction_prop { #2 }
+            { \tl_use:N \l__tablemarks_direction_tl }
+        }
+      \bool_set_false:N \l__tablemarks_have_best_bool
+      \bool_set_false:N \l__tablemarks_have_second_bool
+      \prop_get:NnNT \g__tablemarks_best_prop { #2 } \l__tablemarks_best_tl
+        {
+          \fp_set:Nn \l__tablemarks_best_fp { \l__tablemarks_best_tl }
+          \bool_set_true:N \l__tablemarks_have_best_bool
+        }
+      \prop_get:NnNT \g__tablemarks_second_prop { #2 } \l__tablemarks_second_tl
+        {
+          \fp_set:Nn \l__tablemarks_second_fp { \l__tablemarks_second_tl }
+          \bool_set_true:N \l__tablemarks_have_second_bool
+        }
+      \fp_set:Nn \l__tablemarks_value_fp { #3 }
+      \__tablemarks_consider_value:
+      \bool_if:NT \l__tablemarks_have_best_bool
+        {
+          \prop_gput:Nnx \g__tablemarks_best_prop { #2 }
+            { \fp_to_decimal:N \l__tablemarks_best_fp }
+        }
+      \bool_if:NTF \l__tablemarks_have_second_bool
+        {
+          \prop_gput:Nnx \g__tablemarks_second_prop { #2 }
+            { \fp_to_decimal:N \l__tablemarks_second_fp }
+        }
+        { \prop_gremove:Nn \g__tablemarks_second_prop { #2 } }
+    \group_end:
+  }
+
+\cs_new_protected:Npn \__tablemarks_record_heat:nnn #1 #2 #3
+  {
+    \group_begin:
+      \__tablemarks_set_direction:n { #1 }
+      \prop_get:NnNTF \g__tablemarks_direction_prop { #2 } \l_tmpa_tl
+        {
+          \tl_if_eq:NNF \l_tmpa_tl \l__tablemarks_direction_tl
+            {
+              \PackageWarning{tablemarks}
+                {Heatmap group '#2' was used with mixed directions}
+              \tl_set_eq:NN \l__tablemarks_direction_tl \l_tmpa_tl
+            }
+        }
+        {
+          \prop_gput:Nnx \g__tablemarks_direction_prop { #2 }
+            { \tl_use:N \l__tablemarks_direction_tl }
+        }
+      \fp_set:Nn \l__tablemarks_value_fp { #3 }
+      \prop_get:NnNTF
+        \g__tablemarks_heat_min_prop
+        { #2 }
+        \l__tablemarks_heat_min_tl
+        {
+          \fp_set:Nn \l__tablemarks_heat_min_fp
+            { \l__tablemarks_heat_min_tl }
+          \fp_compare:nT
+            { \l__tablemarks_value_fp < \l__tablemarks_heat_min_fp }
+            {
+              \prop_gput:Nnx \g__tablemarks_heat_min_prop { #2 }
+                { \fp_to_decimal:N \l__tablemarks_value_fp }
+            }
+        }
+        {
+          \prop_gput:Nnx \g__tablemarks_heat_min_prop { #2 }
+            { \fp_to_decimal:N \l__tablemarks_value_fp }
+        }
+      \prop_get:NnNTF
+        \g__tablemarks_heat_max_prop
+        { #2 }
+        \l__tablemarks_heat_max_tl
+        {
+          \fp_set:Nn \l__tablemarks_heat_max_fp
+            { \l__tablemarks_heat_max_tl }
+          \fp_compare:nT
+            { \l__tablemarks_value_fp > \l__tablemarks_heat_max_fp }
+            {
+              \prop_gput:Nnx \g__tablemarks_heat_max_prop { #2 }
+                { \fp_to_decimal:N \l__tablemarks_value_fp }
+            }
+        }
+        {
+          \prop_gput:Nnx \g__tablemarks_heat_max_prop { #2 }
+            { \fp_to_decimal:N \l__tablemarks_value_fp }
+        }
+    \group_end:
+  }
+
+\cs_new_protected:Npn \__tablemarks_declare:nnn #1 #2 #3
+  {
+    \group_begin:
+      \__tablemarks_set_direction:n { #2 }
+      \bool_set_false:N \l__tablemarks_have_best_bool
+      \bool_set_false:N \l__tablemarks_have_second_bool
+      \clist_map_inline:nn { #3 }
+        {
+          \tl_set:Nx \l__tablemarks_value_tl { \tl_trim_spaces:n { ##1 } }
+          \tl_if_blank:VF \l__tablemarks_value_tl
+            {
+              \fp_set:Nn \l__tablemarks_value_fp { \l__tablemarks_value_tl }
+              \__tablemarks_consider_value:
+            }
+        }
+      \bool_if:NTF \l__tablemarks_have_best_bool
+        {
+          \prop_gput:Nnx \g__tablemarks_direction_prop { #1 }
+            { \tl_use:N \l__tablemarks_direction_tl }
+          \prop_gput:Nnx \g__tablemarks_best_prop { #1 }
+            { \fp_to_decimal:N \l__tablemarks_best_fp }
+          \bool_if:NTF \l__tablemarks_have_second_bool
+            {
+              \prop_gput:Nnx \g__tablemarks_second_prop { #1 }
+                { \fp_to_decimal:N \l__tablemarks_second_fp }
+            }
+            { \prop_gremove:Nn \g__tablemarks_second_prop { #1 } }
+        }
+        {
+          \prop_gremove:Nn \g__tablemarks_direction_prop { #1 }
+          \prop_gremove:Nn \g__tablemarks_best_prop { #1 }
+          \prop_gremove:Nn \g__tablemarks_second_prop { #1 }
+          \PackageWarning{tablemarks}
+            {No numeric values were declared for group '#1'}
+        }
+    \group_end:
+  }
+
+\cs_new_protected:Npn \__tablemarks_write_aux:nnn #1 #2 #3
+  {
+    \iow_now:Nx \@auxout
+      {
+        \token_to_str:N \tmRecordedCell
+          { #1 }
+          { #2 }
+          { \fp_to_decimal:n { #3 } }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_write_heat_aux:nnn #1 #2 #3
+  {
+    \iow_now:Nx \@auxout
+      {
+        \token_to_str:N \tmRecordedHeatCell
+          { #1 }
+          { #2 }
+          { \fp_to_decimal:n { #3 } }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_apply_best:n #1
+  {
+    \tl_if_eq:NnTF \g__tablemarks_best_style_tl { text }
+      { \__tablemarks_stable_bold:n { #1 } }
+      {
+        \tl_if_eq:NnTF \g__tablemarks_best_style_tl { background }
+          { \cellcolor{\tl_use:N \g__tablemarks_best_color_tl}#1 }
+          {
+            \cellcolor{\tl_use:N \g__tablemarks_best_color_tl}
+            \__tablemarks_stable_bold:n { #1 }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_stable_bold:n #1
+  {
+    \hbox_set:Nn \l__tablemarks_measure_box { #1 }
+    \makebox[\box_wd:N \l__tablemarks_measure_box][c]
+      {
+        \textpdfrender
+          {
+            TextRenderingMode = FillStroke,
+            LineWidth = \tl_use:N \g__tablemarks_bold_line_width_tl
+          }
+          { #1 }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_apply_second:n #1
+  {
+    \tl_if_eq:NnTF \g__tablemarks_second_style_tl { text }
+      { \underline{#1} }
+      {
+        \tl_if_eq:NnTF \g__tablemarks_second_style_tl { background }
+          { \cellcolor{\tl_use:N \g__tablemarks_second_color_tl}#1 }
+          { \cellcolor{\tl_use:N \g__tablemarks_second_color_tl}\underline{#1} }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_marked_cell:nnnn #1 #2 #3 #4
+  {
+    \__tablemarks_write_aux:nnn { #1 } { #2 } { #3 }
+    \__tablemarks_cell:nnn { #2 } { #3 } { #4 }
+  }
+
+\cs_new_protected:Npn \__tablemarks_heat_cell:nnnn #1 #2 #3 #4
+  {
+    \__tablemarks_write_heat_aux:nnn { #1 } { #2 } { #3 }
+    \prop_get:NnNTF
+      \g__tablemarks_heat_min_prop
+      { #2 }
+      \l__tablemarks_heat_min_tl
+      {
+        \prop_get:NnNTF
+          \g__tablemarks_heat_max_prop
+          { #2 }
+          \l__tablemarks_heat_max_tl
+          {
+            \__tablemarks_set_direction:n { #1 }
+            \prop_get:NnNT \g__tablemarks_direction_prop { #2 } \l_tmpa_tl
+              { \tl_set_eq:NN \l__tablemarks_direction_tl \l_tmpa_tl }
+            \fp_set:Nn \l__tablemarks_value_fp { #3 }
+            \fp_set:Nn \l__tablemarks_heat_min_fp
+              { \l__tablemarks_heat_min_tl }
+            \fp_set:Nn \l__tablemarks_heat_max_fp
+              { \l__tablemarks_heat_max_tl }
+            \fp_compare:nTF
+              {
+                abs(
+                  \l__tablemarks_heat_max_fp
+                  - \l__tablemarks_heat_min_fp
+                )
+                <= \g__tablemarks_tolerance_fp
+              }
+              {
+                \fp_set_eq:NN
+                  \l__tablemarks_heat_percent_fp
+                  \g__tablemarks_heat_max_intensity_fp
+              }
+              {
+                \tl_if_eq:NnTF \l__tablemarks_direction_tl { lower }
+                  {
+                    \fp_set:Nn \l__tablemarks_heat_percent_fp
+                      {
+                        \g__tablemarks_heat_min_intensity_fp
+                        +
+                        (
+                          \l__tablemarks_heat_max_fp
+                          - \l__tablemarks_value_fp
+                        )
+                        /
+                        (
+                          \l__tablemarks_heat_max_fp
+                          - \l__tablemarks_heat_min_fp
+                        )
+                        *
+                        (
+                          \g__tablemarks_heat_max_intensity_fp
+                          - \g__tablemarks_heat_min_intensity_fp
+                        )
+                      }
+                  }
+                  {
+                    \fp_set:Nn \l__tablemarks_heat_percent_fp
+                      {
+                        \g__tablemarks_heat_min_intensity_fp
+                        +
+                        (
+                          \l__tablemarks_value_fp
+                          - \l__tablemarks_heat_min_fp
+                        )
+                        /
+                        (
+                          \l__tablemarks_heat_max_fp
+                          - \l__tablemarks_heat_min_fp
+                        )
+                        *
+                        (
+                          \g__tablemarks_heat_max_intensity_fp
+                          - \g__tablemarks_heat_min_intensity_fp
+                        )
+                      }
+                  }
+              }
+            \tl_set:Nx \l__tablemarks_heat_percent_tl
+              {
+                \fp_to_int:n
+                  {
+                    min(100, max(0, \l__tablemarks_heat_percent_fp))
+                  }
+              }
+            \tl_set:Nx \l__tablemarks_heat_color_spec_tl
+              {
+                \tl_use:N \g__tablemarks_heat_color_tl
+                !
+                \tl_use:N \l__tablemarks_heat_percent_tl
+              }
+            \exp_args:NV \cellcolor \l__tablemarks_heat_color_spec_tl
+            #4
+          }
+          { #4 }
+      }
+      { #4 }
+  }
+
+\cs_new_protected:Npn \__tablemarks_cell:nnn #1 #2 #3
+  {
+    \prop_get:NnNTF \g__tablemarks_best_prop { #1 } \l__tablemarks_best_tl
+      {
+        \fp_set:Nn \l__tablemarks_value_fp { #2 }
+        \fp_set:Nn \l__tablemarks_best_fp { \l__tablemarks_best_tl }
+        \__tablemarks_equal:NNTF
+          \l__tablemarks_value_fp
+          \l__tablemarks_best_fp
+          { \__tablemarks_apply_best:n { #3 } }
+          {
+            \prop_get:NnNTF
+              \g__tablemarks_second_prop
+              { #1 }
+              \l__tablemarks_second_tl
+              {
+                \fp_set:Nn \l__tablemarks_second_fp
+                  { \l__tablemarks_second_tl }
+                \__tablemarks_equal:NNTF
+                  \l__tablemarks_value_fp
+                  \l__tablemarks_second_fp
+                  { \__tablemarks_apply_second:n { #3 } }
+                  { #3 }
+              }
+              { #3 }
+          }
+      }
+      {
+        #3
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_auto_cell:nnn #1 #2 #3
+  {
+    \__tablemarks_extract_number:nN { #3 } \l__tablemarks_auto_value_tl
+    \tl_if_blank:VTF \l__tablemarks_auto_value_tl
+      {
+        \PackageWarning{tablemarks}
+          {Could not find a numeric value in cell '#3'}
+        #3
+      }
+      {
+        \__tablemarks_marked_cell:nnnn
+          { #1 }
+          { #2 }
+          { \l__tablemarks_auto_value_tl }
+          { #3 }
+      }
+  }
+
+\cs_new_protected:Npn \__tablemarks_auto_heat_cell:nnn #1 #2 #3
+  {
+    \__tablemarks_extract_number:nN { #3 } \l__tablemarks_auto_value_tl
+    \tl_if_blank:VTF \l__tablemarks_auto_value_tl
+      {
+        \PackageWarning{tablemarks}
+          {Could not find a numeric value in heatmap cell '#3'}
+        #3
+      }
+      {
+        \__tablemarks_heat_cell:nnnn
+          { #1 }
+          { #2 }
+          { \l__tablemarks_auto_value_tl }
+          { #3 }
+      }
+  }
+
+\NewDocumentCommand{\tmsetup}{m}
+  { \keys_set:nn { tablemarks } { #1 } }
+
+\NewDocumentCommand{\tmDeclare}{O{higher} m m}
+  { \__tablemarks_declare:nnn { #2 } { #1 } { #3 } }
+
+\NewDocumentCommand{\tmDeclareHigher}{m m}
+  { \__tablemarks_declare:nnn { #1 } { higher } { #2 } }
+
+\NewDocumentCommand{\tmDeclareLower}{m m}
+  { \__tablemarks_declare:nnn { #1 } { lower } { #2 } }
+
+\NewDocumentCommand{\tmRecordedCell}{m m m}
+  { \__tablemarks_record:nnn { #1 } { #2 } { #3 } }
+
+\NewDocumentCommand{\tmRecordedHeatCell}{m m m}
+  { \__tablemarks_record_heat:nnn { #1 } { #2 } { #3 } }
+
+\NewDocumentCommand{\tmcell}{o m m}
+  {
+    \IfNoValueTF { #1 }
+      { \__tablemarks_auto_cell:nnn { higher } { #2 } { #3 } }
+      { \__tablemarks_marked_cell:nnnn { higher } { #2 } { #1 } { #3 } }
+  }
+
+\NewDocumentCommand{\tmhighcell}{o m m}
+  {
+    \IfNoValueTF { #1 }
+      { \__tablemarks_auto_cell:nnn { higher } { #2 } { #3 } }
+      { \__tablemarks_marked_cell:nnnn { higher } { #2 } { #1 } { #3 } }
+  }
+
+\NewDocumentCommand{\tmlowcell}{o m m}
+  {
+    \IfNoValueTF { #1 }
+      { \__tablemarks_auto_cell:nnn { lower } { #2 } { #3 } }
+      { \__tablemarks_marked_cell:nnnn { lower } { #2 } { #1 } { #3 } }
+  }
+
+\NewDocumentCommand{\tmheatcell}{o m m}
+  {
+    \IfNoValueTF { #1 }
+      { \__tablemarks_auto_heat_cell:nnn { higher } { #2 } { #3 } }
+      { \__tablemarks_heat_cell:nnnn { higher } { #2 } { #1 } { #3 } }
+  }
+
+\NewDocumentCommand{\tmlowheatcell}{o m m}
+  {
+    \IfNoValueTF { #1 }
+      { \__tablemarks_auto_heat_cell:nnn { lower } { #2 } { #3 } }
+      { \__tablemarks_heat_cell:nnnn { lower } { #2 } { #1 } { #3 } }
+  }
+
+\NewDocumentCommand{\tmclear}{m}
+  {
+    \prop_gremove:Nn \g__tablemarks_direction_prop { #1 }
+    \prop_gremove:Nn \g__tablemarks_best_prop { #1 }
+    \prop_gremove:Nn \g__tablemarks_second_prop { #1 }
+    \prop_gremove:Nn \g__tablemarks_heat_min_prop { #1 }
+    \prop_gremove:Nn \g__tablemarks_heat_max_prop { #1 }
+  }
+
+\ExplSyntaxOff

@@ -1,0 +1,145 @@
+\documentclass{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{style/tablemarks}
+
+\begin{document}
+
+\section*{Tablemarks Usage Example}
+
+This file demonstrates how to mark the best and second-best values in result
+tables. Compile it from the project root with:
+
+\begin{verbatim}
+latexmk -pdf -outdir=output style/tablemarks.tex
+\end{verbatim}
+
+\subsection*{Column-wise Metrics}
+
+\tmsetup{style=both}
+
+\begin{table}[h]
+  \centering
+  \caption{Automatic column-wise marking.}
+  \begin{tabular}{lccc}
+    \toprule
+    Method & PSNR$\uparrow$ & MS-SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+    \midrule
+    D-NeRF & \tmcell{col-psnr}{38.18} & \tmcell{col-ssim}{0.9910} & \tmlowcell{col-lpips}{0.0120} \\
+    TiNeuVox-B & \tmcell{col-psnr}{40.62} & \tmcell{col-ssim}{0.9968} & \tmlowcell{col-lpips}{0.0083} \\
+    SC-GS & \tmcell{col-psnr}{44.91} & \tmcell{col-ssim}{0.9980} & \tmlowcell{col-lpips}{0.0166} \\
+    Ours & \tmcell{col-psnr}{41.72} & \tmcell{col-ssim}{0.9970} & \tmlowcell{col-lpips}{0.0097} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection*{Custom Best and Second-best Styles}
+
+Use \verb|best-style| and \verb|second-style| when the best and second-best
+cells should use different visual treatments.
+
+\tmsetup{
+  best-style=both,
+  second-style=background,
+  best-color=blue!20,
+  second-color=green!20,
+  bold-line-width=0.30pt
+}
+
+\begin{table}[h]
+  \centering
+  \caption{Custom style: blue bold best, green second-best.}
+  \begin{tabular}{lc}
+    \toprule
+    Method & Accuracy$\uparrow$ \\
+    \midrule
+    Method A & \tmcell{custom-acc}{82.1} \\
+    Method B & \tmcell{custom-acc}{84.6} \\
+    Method C & \tmcell{custom-acc}{83.7} \\
+    Ours & \tmcell{custom-acc}{86.2} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection*{Heatmap Cells}
+
+Use \verb|\tmheatcell| when higher values should have darker backgrounds, and
+\verb|\tmlowheatcell| when lower values should have darker backgrounds. The
+package collects each group's minimum and maximum values automatically.
+
+\tmsetup{
+  heat-color=blue,
+  heat-min-intensity=8,
+  heat-max-intensity=55
+}
+
+\begin{table}[h]
+  \centering
+  \caption{Heatmap backgrounds based on cell values.}
+  \begin{tabular}{lcc}
+    \toprule
+    Method & Accuracy$\uparrow$ & Error$\downarrow$ \\
+    \midrule
+    Method A & \tmheatcell{heat-acc}{82.1} & \tmlowheatcell{heat-err}{17.9} \\
+    Method B & \tmheatcell{heat-acc}{84.6} & \tmlowheatcell{heat-err}{15.4} \\
+    Method C & \tmheatcell{heat-acc}{83.7} & \tmlowheatcell{heat-err}{16.3} \\
+    Ours & \tmheatcell{heat-acc}{86.2} & \tmlowheatcell{heat-err}{13.8} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection*{Formatted Cells}
+
+If the cell contains units, uncertainty, or extra formatting, \verb|\tmcell| uses the
+first number in the displayed content as the comparison value. The package
+collects these values from the table cells automatically, so there is no
+separate value list to maintain.
+
+\tmsetup{style=text}
+
+\begin{table}[h]
+  \centering
+  \caption{Formatted cells with automatic numeric extraction.}
+  \begin{tabular}{lc}
+    \toprule
+    Method & PSNR$\uparrow$ \\
+    \midrule
+    Baseline & \tmcell{fmt-psnr}{$28.47 \pm 0.15$} \\
+    Method A & \tmcell{fmt-psnr}{$30.68 \pm 0.09$} \\
+    Method B & \tmcell{fmt-psnr}{$31.40 \pm 0.11$} \\
+    Ours & \tmcell{fmt-psnr}{$32.45 \pm 0.07$} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection*{Row-wise Metrics}
+
+For row-wise marking, declare one group per row and reuse that group across the
+cells in the row.
+
+\tmsetup{style=background}
+
+\begin{table}[h]
+  \centering
+  \caption{Automatic row-wise marking.}
+  \begin{tabular}{lcccc}
+    \toprule
+    Scene & D-NeRF & TiNeuVox-B & SC-GS & Ours \\
+    \midrule
+    Scene A
+      & \tmcell{row-scene-a}{31.02}
+      & \tmcell{row-scene-a}{32.78}
+      & \tmcell{row-scene-a}{35.51}
+      & \tmcell{row-scene-a}{34.80} \\
+    Scene B
+      & \tmcell{row-scene-b}{29.65}
+      & \tmcell{row-scene-b}{30.12}
+      & \tmcell{row-scene-b}{31.24}
+      & \tmcell{row-scene-b}{33.08} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\end{document}

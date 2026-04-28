@@ -1,0 +1,410 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{style/radarchart}[2026/04/28 v0.1 Radar charts for paper figures]
+
+\RequirePackage{xparse}
+\RequirePackage{xcolor}
+\RequirePackage{tikz}
+\RequirePackage{pgffor}
+\usetikzlibrary{calc}
+
+\definecolor{RadarPurple}{HTML}{B52AF0}
+\definecolor{RadarOrange}{HTML}{F0A12B}
+\definecolor{RadarBlue}{HTML}{2E6DEB}
+\definecolor{RadarGreen}{HTML}{35A85A}
+\definecolor{RadarCyan}{HTML}{45B8D8}
+\definecolor{RadarRed}{HTML}{E54B35}
+\definecolor{RadarGrid}{HTML}{5F5F5F}
+
+\makeatletter
+
+\newif\ifradar@showvalues
+\newif\ifradar@ticklabels
+\newif\ifradar@clipvalues
+\newif\ifradar@seriesvalues
+\newif\ifradar@seriesmarks
+
+\newcount\radar@axiscount
+\newcount\radar@valuecount
+\newcount\radar@seriescount
+\newcount\radar@legendrow
+\newcount\radar@tmpcount
+\newtoks\radar@legendtoks
+
+\def\radar@auto{auto}
+
+\pgfkeys{
+  /radarchart/.is family,
+  /radarchart,
+  max/.store in=\radar@max,
+  radius/.store in=\radar@radius,
+  rings/.store in=\radar@rings,
+  label distance/.store in=\radar@labeldistance,
+  value offset/.store in=\radar@valueoffset,
+  value precision/.store in=\radar@valueprecision,
+  grid color/.store in=\radar@gridcolor,
+  axis color/.store in=\radar@axiscolor,
+  grid opacity/.store in=\radar@gridopacity,
+  axis opacity/.store in=\radar@axisopacity,
+  grid line width/.store in=\radar@gridlinewidth,
+  axis line width/.store in=\radar@axislinewidth,
+  axis label color/.store in=\radar@axislabelcolor,
+  axis label colors/.store in=\radar@axislabelcolors,
+  axis label font/.store in=\radar@axislabelfont,
+  value font/.store in=\radar@valuefont,
+  legend font/.store in=\radar@legendfont,
+  value labels/.is if=radar@showvalues,
+  values/.is if=radar@showvalues,
+  tick labels/.is if=radar@ticklabels,
+  clip values/.is if=radar@clipvalues,
+  palette/.store in=\radar@palette,
+  tikz options/.store in=\radar@tikzoptions
+}
+
+\pgfkeys{
+  /radarchart/axes/.is family,
+  /radarchart/axes,
+  label color/.store in=\radar@axislabelcolor,
+  label colors/.store in=\radar@axislabelcolors,
+  label distance/.store in=\radar@labeldistance,
+  label font/.store in=\radar@axislabelfont
+}
+
+\pgfkeys{
+  /radarchart/series/.is family,
+  /radarchart/series,
+  name/.store in=\radar@seriesname,
+  color/.store in=\radar@seriescolor,
+  fill/.store in=\radar@seriesfill,
+  fill opacity/.store in=\radar@seriesfillopacity,
+  draw opacity/.store in=\radar@seriesdrawopacity,
+  opacity/.store in=\radar@seriesdrawopacity,
+  line width/.store in=\radar@serieslinewidth,
+  mark size/.store in=\radar@seriesmarksize,
+  value labels/.is if=radar@seriesvalues,
+  values/.is if=radar@seriesvalues,
+  marks/.is if=radar@seriesmarks
+}
+
+\pgfkeys{
+  /radarchart/legend/.is family,
+  /radarchart/legend,
+  x/.store in=\radar@legendx,
+  y/.store in=\radar@legendy,
+  row sep/.store in=\radar@legendrowsep,
+  swatch size/.store in=\radar@legendswatch,
+  gap/.store in=\radar@legendgap,
+  font/.store in=\radar@legendfont
+}
+
+\pgfkeys{
+  /radarchart/dot legend/.is family,
+  /radarchart/dot legend,
+  x/.store in=\radar@dotlegendx,
+  y/.store in=\radar@dotlegendy,
+  row sep/.store in=\radar@dotlegendrowsep,
+  radius/.store in=\radar@dotlegendradius,
+  gap/.store in=\radar@dotlegendgap,
+  font/.store in=\radar@legendfont
+}
+
+\newcommand{\radar@setdefaults}{%
+  \def\radar@max{100}%
+  \def\radar@radius{2.05}%
+  \def\radar@rings{4}%
+  \def\radar@labeldistance{0.42}%
+  \def\radar@valueoffset{0.13}%
+  \def\radar@valueprecision{1}%
+  \def\radar@gridcolor{RadarGrid}%
+  \def\radar@axiscolor{RadarGrid}%
+  \def\radar@gridopacity{0.45}%
+  \def\radar@axisopacity{0.65}%
+  \def\radar@gridlinewidth{0.35pt}%
+  \def\radar@axislinewidth{0.35pt}%
+  \def\radar@axislabelcolor{black}%
+  \def\radar@axislabelcolors{}%
+  \def\radar@axislabelfont{\scriptsize\bfseries}%
+  \def\radar@valuefont{\tiny\bfseries}%
+  \def\radar@legendfont{\scriptsize}%
+  \def\radar@palette{RadarPurple,RadarOrange,RadarBlue,RadarGreen,RadarCyan,RadarRed}%
+  \def\radar@tikzoptions{}%
+  \def\radar@legendx{auto}%
+  \def\radar@legendy{auto}%
+  \def\radar@legendrowsep{0.25}%
+  \def\radar@legendswatch{0.13}%
+  \def\radar@legendgap{0.10}%
+  \def\radar@dotlegendx{auto}%
+  \def\radar@dotlegendy{auto}%
+  \def\radar@dotlegendrowsep{0.25}%
+  \def\radar@dotlegendradius{0.055}%
+  \def\radar@dotlegendgap{0.13}%
+  \radar@showvaluestrue
+  \radar@ticklabelsfalse
+  \radar@clipvaluestrue
+}
+
+\newcommand{\radar@setseriesdefaults}{%
+  \def\radar@seriesname{}%
+  \radar@getlistitem{\radar@palette}{\the\radar@seriescount}{\radar@seriescolor}%
+  \ifx\radar@seriescolor\@empty
+    \def\radar@seriescolor{RadarPurple}%
+  \fi
+  \def\radar@seriesfill{auto}%
+  \def\radar@seriesfillopacity{0.18}%
+  \def\radar@seriesdrawopacity{0.92}%
+  \def\radar@serieslinewidth{0.75pt}%
+  \def\radar@seriesmarksize{0.018}%
+  \radar@seriesmarkstrue
+  \ifradar@showvalues
+    \radar@seriesvaluestrue
+  \else
+    \radar@seriesvaluesfalse
+  \fi
+}
+
+\newcommand{\radar@countlist}[2]{%
+  #2=0\relax
+  \@for\radar@item:=#1\do{%
+    \advance#2 by 1\relax
+  }%
+}
+
+\ExplSyntaxOn
+\cs_generate_variant:Nn \clist_item:nn { en }
+\cs_new_protected:Npn \radar_get_list_item:nnN #1#2#3
+  {
+    \tl_set:Nx #3 { \tl_trim_spaces:n { \clist_item:en {#1} {#2} } }
+  }
+\cs_new_protected:Npn \radar_trim_to_macro:nN #1#2
+  {
+    \tl_set:Nx #2 { \tl_trim_spaces:n {#1} }
+  }
+\cs_new_protected:Npn \radar@getlistitem #1#2#3
+  {
+    \radar_get_list_item:nnN {#1} {#2} #3
+  }
+\cs_new_protected:Npn \radar@trimtomacro #1#2
+  {
+    \radar_trim_to_macro:nN {#1} #2
+  }
+\ExplSyntaxOff
+
+\newcommand{\RadarAxisColors}[1]{%
+  \def\radar@axislabelcolors{#1}%
+}
+
+\newcommand{\radar@drawgrid}{%
+  \foreach \ring in {1,...,\radar@rings}{%
+    \foreach \i in {1,...,\the\radar@axiscount}{%
+      \pgfmathsetmacro{\radar@angle}{90-(\i-1)*360/(\the\radar@axiscount)}%
+      \pgfmathsetmacro{\radar@ringradius}{\radar@radius*\ring/\radar@rings}%
+      \coordinate (radar-ring-\ring-\i) at (\radar@angle:\radar@ringradius cm);%
+    }%
+    \draw[
+      color=\radar@gridcolor,
+      opacity=\radar@gridopacity,
+      line width=\radar@gridlinewidth
+    ]
+      (radar-ring-\ring-1)
+      \foreach \i in {2,...,\the\radar@axiscount}{ -- (radar-ring-\ring-\i) }
+      -- cycle;%
+    \ifradar@ticklabels
+      \pgfmathsetmacro{\radar@tickvalue}{\radar@max*\ring/\radar@rings}%
+      \node[
+        anchor=south west,
+        inner sep=0.5pt,
+        font=\tiny,
+        text=\radar@gridcolor
+      ] at (radar-ring-\ring-1)
+        {\pgfmathprintnumber[fixed,precision=0]{\radar@tickvalue}};%
+    \fi
+  }%
+  \foreach \i in {1,...,\the\radar@axiscount}{%
+    \draw[
+      color=\radar@axiscolor,
+      opacity=\radar@axisopacity,
+      line width=\radar@axislinewidth
+    ] (0,0) -- (radar-ring-\radar@rings-\i);%
+  }%
+}
+
+\NewDocumentCommand{\RadarAxes}{O{}m}{%
+  \pgfkeys{/radarchart/axes/.cd,#1}%
+  \radar@countlist{#2}{\radar@axiscount}%
+  \ifnum\radar@axiscount<3\relax
+    \PackageWarning{style/radarchart}{Radar charts need at least three axes}%
+  \fi
+  \radar@drawgrid
+  \pgfmathsetmacro{\radar@labelradius}{\radar@radius+\radar@labeldistance}%
+  \foreach \radar@label [count=\i] in {#2}{%
+    \pgfmathsetmacro{\radar@angle}{90-(\i-1)*360/(\the\radar@axiscount)}%
+    \radar@getlistitem{\radar@axislabelcolors}{\i}{\radar@thislabelcolor}%
+    \ifx\radar@thislabelcolor\@empty
+      \def\radar@thislabelcolor{\radar@axislabelcolor}%
+    \fi
+    \node[
+      align=center,
+      inner sep=1pt,
+      font=\radar@axislabelfont,
+      text=\radar@thislabelcolor
+    ] at (\radar@angle:\radar@labelradius cm) {\radar@label};%
+  }%
+}
+
+\NewDocumentCommand{\RadarSeries}{O{}m}{%
+  \advance\radar@seriescount by 1\relax
+  \radar@setseriesdefaults
+  \pgfkeys{/radarchart/series/.cd,#1}%
+  \ifx\radar@seriesfill\radar@auto
+    \let\radar@seriesfill\radar@seriescolor
+  \fi
+  \radar@countlist{#2}{\radar@valuecount}%
+  \ifnum\radar@valuecount=\radar@axiscount\relax\else
+    \PackageWarning{style/radarchart}{Series `\radar@seriesname' has \the\radar@valuecount\space values but the chart has \the\radar@axiscount\space axes}%
+  \fi
+  \foreach \radar@value [count=\i] in {#2}{%
+    \pgfmathsetmacro{\radar@angle}{90-(\i-1)*360/(\the\radar@axiscount)}%
+    \ifradar@clipvalues
+      \pgfmathsetmacro{\radar@scaledradius}{min(max(\radar@value,0),\radar@max)/\radar@max*\radar@radius}%
+    \else
+      \pgfmathsetmacro{\radar@scaledradius}{\radar@value/\radar@max*\radar@radius}%
+    \fi
+    \coordinate (radar-series-\the\radar@seriescount-\i) at (\radar@angle:\radar@scaledradius cm);%
+  }%
+  \path[
+    fill=\radar@seriesfill,
+    fill opacity=\radar@seriesfillopacity,
+    draw=\radar@seriescolor,
+    draw opacity=\radar@seriesdrawopacity,
+    line width=\radar@serieslinewidth
+  ]
+    (radar-series-\the\radar@seriescount-1)
+    \foreach \i in {2,...,\the\radar@valuecount}{ -- (radar-series-\the\radar@seriescount-\i) }
+    -- cycle;%
+  \ifradar@seriesmarks
+    \foreach \i in {1,...,\the\radar@valuecount}{%
+      \fill[
+        \radar@seriescolor,
+        opacity=\radar@seriesdrawopacity
+      ] (radar-series-\the\radar@seriescount-\i) circle (\radar@seriesmarksize cm);%
+    }%
+  \fi
+  \ifradar@seriesvalues
+    \foreach \radar@value [count=\i] in {#2}{%
+      \pgfmathsetmacro{\radar@angle}{90-(\i-1)*360/(\the\radar@axiscount)}%
+      \ifradar@clipvalues
+        \pgfmathsetmacro{\radar@scaledradius}{min(max(\radar@value,0),\radar@max)/\radar@max*\radar@radius+\radar@valueoffset}%
+      \else
+        \pgfmathsetmacro{\radar@scaledradius}{\radar@value/\radar@max*\radar@radius+\radar@valueoffset}%
+      \fi
+      \node[
+        font=\radar@valuefont,
+        text=\radar@seriescolor,
+        inner sep=0.6pt,
+        fill=white,
+        fill opacity=0.55,
+        text opacity=1
+      ] at (\radar@angle:\radar@scaledradius cm)
+        {\pgfmathprintnumber[fixed,precision=\radar@valueprecision]{\radar@value}};%
+    }%
+  \fi
+  \radar@appendlegendcurrent
+}
+
+\protected\def\radar@legenditem#1#2{%
+  \pgfmathsetmacro{\radar@legy}{-\the\radar@legendrow*\radar@legendrowsep}%
+  \pgfmathsetmacro{\radar@legtextx}{\radar@legendswatch+\radar@legendgap}%
+  \pgfmathsetmacro{\radar@legtexty}{\radar@legy+0.5*\radar@legendswatch}%
+  \draw[draw=#1, fill=#1] (0,\radar@legy) rectangle ++(\radar@legendswatch,\radar@legendswatch);%
+  \node[
+    anchor=west,
+    inner sep=0pt,
+    font=\radar@legendfont,
+    text=black
+  ] at (\radar@legtextx,\radar@legtexty) {#2};%
+  \advance\radar@legendrow by 1\relax
+}
+
+\newcommand{\radar@appendlegendcurrent}{%
+  \ifx\radar@seriesname\@empty\else
+    \begingroup
+      \edef\radar@next{%
+        \endgroup
+        \radar@legendtoks={\the\radar@legendtoks
+          \noexpand\radar@legenditem{\radar@seriescolor}{\radar@seriesname}}%
+      }%
+    \radar@next
+  \fi
+}
+
+\NewDocumentCommand{\RadarLegend}{O{}}{%
+  \pgfkeys{/radarchart/legend/.cd,#1}%
+  \ifx\radar@legendx\radar@auto
+    \pgfmathsetmacro{\radar@legendxx}{\radar@radius+0.78}%
+  \else
+    \pgfmathsetmacro{\radar@legendxx}{\radar@legendx}%
+  \fi
+  \ifx\radar@legendy\radar@auto
+    \pgfmathsetmacro{\radar@legendyy}{\radar@radius+0.10}%
+  \else
+    \pgfmathsetmacro{\radar@legendyy}{\radar@legendy}%
+  \fi
+  \begin{scope}[shift={(\radar@legendxx cm,\radar@legendyy cm)}]
+    \radar@legendrow=0\relax
+    \the\radar@legendtoks
+  \end{scope}%
+}
+
+\protected\def\radar@dotlegenditem#1#2#3{%
+  \pgfmathsetmacro{\radar@legy}{-#3*\radar@dotlegendrowsep}%
+  \pgfmathsetmacro{\radar@legtextx}{2*\radar@dotlegendradius+\radar@dotlegendgap}%
+  \fill[#1] (0,\radar@legy) circle (\radar@dotlegendradius cm);%
+  \node[
+    anchor=west,
+    inner sep=0pt,
+    font=\radar@legendfont,
+    text=black
+  ] at (\radar@legtextx,\radar@legy) {#2};%
+}
+
+\NewDocumentCommand{\RadarDotLegend}{O{}m}{%
+  \pgfkeys{/radarchart/dot legend/.cd,#1}%
+  \ifx\radar@dotlegendx\radar@auto
+    \pgfmathsetmacro{\radar@dotlegendxx}{\radar@radius+0.78}%
+  \else
+    \pgfmathsetmacro{\radar@dotlegendxx}{\radar@dotlegendx}%
+  \fi
+  \ifx\radar@dotlegendy\radar@auto
+    \pgfmathsetmacro{\radar@dotlegendyy}{-\radar@radius+0.35}%
+  \else
+    \pgfmathsetmacro{\radar@dotlegendyy}{\radar@dotlegendy}%
+  \fi
+  \begin{scope}[shift={(\radar@dotlegendxx cm,\radar@dotlegendyy cm)}]
+    \foreach \radar@dotcolor/\radar@dotlabel [count=\radar@dotrow from 0] in {#2}{%
+      \radar@trimtomacro{\radar@dotcolor}{\radar@thisdotcolor}%
+      \radar@trimtomacro{\radar@dotlabel}{\radar@thisdotlabel}%
+      \radar@dotlegenditem{\radar@thisdotcolor}{\radar@thisdotlabel}{\radar@dotrow}%
+    }%
+  \end{scope}%
+}
+
+\NewDocumentEnvironment{radarchart}{O{}}{%
+  \begingroup
+  \radar@setdefaults
+  \pgfkeys{/radarchart/.cd,#1}%
+  \radar@seriescount=0\relax
+  \radar@legendtoks={}%
+  \begin{tikzpicture}[
+    x=1cm,
+    y=1cm,
+    line cap=round,
+    line join=round,
+    \radar@tikzoptions
+  ]%
+}{%
+  \end{tikzpicture}%
+  \endgroup
+}
+
+\makeatother
+
+\endinput

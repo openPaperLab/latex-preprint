@@ -1,0 +1,53 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesExplPackage{style/tablebeauty}{2026/04/28}{0.1.0}
+  {Reusable table row styling helpers}
+
+\RequirePackage{xparse}
+\RequirePackage{xcolor}
+\RequirePackage{array}
+\RequirePackage{colortbl}
+
+\definecolor{TableBeautyGroup}{HTML}{F7E8F0}
+\definecolor{TableBeautyHighlight}{HTML}{EEF0FF}
+\definecolor{TableBeautySubtle}{HTML}{F6F6F6}
+
+\ExplSyntaxOn
+
+\cs_new_protected:Npn \__tablebeauty_set_group_color:n #1
+  { \renewcommand{\tbGroupColor}{#1} }
+
+\cs_new_protected:Npn \__tablebeauty_set_highlight_color:n #1
+  { \renewcommand{\tbHighlightColor}{#1} }
+
+\cs_new_protected:Npn \__tablebeauty_set_subtle_color:n #1
+  { \renewcommand{\tbSubtleColor}{#1} }
+
+\keys_define:nn { tablebeauty }
+  {
+    group-color .code:n = { \__tablebeauty_set_group_color:n { #1 } },
+    highlight-color .code:n = { \__tablebeauty_set_highlight_color:n { #1 } },
+    subtle-color .code:n = { \__tablebeauty_set_subtle_color:n { #1 } },
+  }
+
+\NewDocumentCommand{\tbsetup}{m}
+  { \keys_set:nn { tablebeauty } { #1 } }
+
+
+\ExplSyntaxOff
+
+\newcommand{\tbGroupColor}{TableBeautyGroup}
+\newcommand{\tbHighlightColor}{TableBeautyHighlight}
+\newcommand{\tbSubtleColor}{TableBeautySubtle}
+
+\newcommand{\tbgroup}[2]{%
+  \multicolumn{#1}{>{\columncolor{\tbGroupColor}}c}{\bfseries #2}\\%
+}
+
+\newcommand{\tbgroupcolor}[3]{%
+  \multicolumn{#2}{>{\columncolor{#1}}c}{\bfseries #3}\\%
+}
+
+\newcommand{\tbhighlight}{\rowcolor{\tbHighlightColor}}
+\newcommand{\tbhighlightcolor}[1]{\rowcolor{#1}}
+\newcommand{\tbsubtle}{\rowcolor{\tbSubtleColor}}
+\newcommand{\tbsubtlecolor}[1]{\rowcolor{#1}}
