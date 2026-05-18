@@ -1,7 +1,7 @@
-# Tables
+# Table Snippets
 
-Put reusable table snippets in this directory and include them from sections with
-`\input{tables/<file>}`.
+Put complete table-like floating environments in this directory and include
+them from sections with `\input{floats/tables/<file>}`.
 
 ## Automatic best/second-best marks
 
@@ -35,7 +35,7 @@ For formatted cells, `\tmcell` uses the first number in the displayed content,
 so `\tmcell{psnr}{$44.91 \pm 0.03$}` works directly. Use the optional form, such
 as `\tmcell[44.91]{psnr}{best: 44.91}`, only when the first number is not the
 value that should be compared. See
-`tables/auto_marked_example.tex` for a complete table.
+`floats/tables/auto_marked_example.tex` for a complete table.
 
 For heatmap-style backgrounds, use:
 

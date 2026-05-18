@@ -24,9 +24,13 @@ See `main.tex` for a complete example.
 
 ### Project Structure
 
-| File                   | Description                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **main.tex**           | Example template using the `arxiv` style                                                                      |
-| **references.bib**     | Bibliography source for the template                                                                          |
-| **style/arxiv.sty**    | The main style file providing the arXiv layout                                                                |
-| **style/roundenv.sty** | Adds rounded rectangular, colored backgrounds to environments (e.g., theorem, lemma) for better visual appeal |
+| Path                    | Description                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **main.tex**            | Main paper entry point and package setup                                                                      |
+| **sections/**           | Text-only section files; include float snippets with `\input{floats/...}`                                    |
+| **floats/figures/**     | `figure`, `figure*`, and `wrapfigure` snippets for the main paper                                            |
+| **floats/tables/**      | `table`, `table*`, and `wraptable` snippets for the main paper                                               |
+| **figures/**            | Raw image assets used by figure snippets; `main.tex` sets `\graphicspath{{figures/}}`                       |
+| **references.bib**      | Bibliography source for the template                                                                          |
+| **style/arxiv.sty**     | The main style file providing the arXiv layout                                                                |
+| **style/roundenv.sty**  | Adds rounded rectangular, colored backgrounds to environments (e.g., theorem, lemma) for better visual appeal |
